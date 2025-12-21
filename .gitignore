@@ -1,3 +1,4 @@
+# IDE
 *.iml
 .gradle
 /local.properties
@@ -7,9 +8,26 @@
 /.idea/workspace.xml
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
+/.idea/deploymentTargetSelector.xml
+/.idea/vcs.xml
 .DS_Store
+
+# Build artifacts
 /build
-/captures
-.externalNativeBuild
+/*/build
 .cxx
-local.properties
+.externalNativeBuild
+
+# Kotlin
+.kotlin
+
+# Logs
+*.log
+
+# Android Studio captures
+/captures
+
+# Secrets & Signing
+*.jks
+*.keystore
+google-services.json
