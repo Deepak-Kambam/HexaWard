@@ -7,7 +7,18 @@ enum class SignalSource {
     PERMISSION_WATCHDOG,
     RESOURCE_USAGE,
     BACKGROUND_EXECUTION,
-    NETWORK_OBSERVER
+    NETWORK_OBSERVER,
+    HONEYFILE
+}
+
+enum class SignalType {
+    MASS_FILE_MODIFICATION,
+    RESOURCE_SPIKE,
+    SUSPICIOUS_EXTENSION,
+    SUSPICIOUS_PERMISSION_COMBO,
+    HONEYFILE_TOUCHED,
+    NETWORK_ANOMALY,
+    UNAUTHORIZED_BACKGROUND_START
 }
 
 enum class SignalSeverity {
@@ -20,6 +31,7 @@ enum class SignalSeverity {
 data class SecuritySignal(
     val id: String = UUID.randomUUID().toString(),
     val source: SignalSource,
+    val type: SignalType,
     val severity: SignalSeverity,
     val description: String,
     val timestamp: Long = System.currentTimeMillis(),

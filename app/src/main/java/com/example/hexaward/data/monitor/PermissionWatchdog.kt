@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import com.example.hexaward.domain.model.SecuritySignal
 import com.example.hexaward.domain.model.SignalSeverity
 import com.example.hexaward.domain.model.SignalSource
+import com.example.hexaward.domain.model.SignalType
 import com.example.hexaward.domain.monitor.SignalMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -55,6 +56,7 @@ class PermissionWatchdog @Inject constructor(
                 scope.launch {
                     val signal = SecuritySignal(
                         source = SignalSource.PERMISSION_WATCHDOG,
+                        type = SignalType.SUSPICIOUS_PERMISSION_COMBO,
                         severity = SignalSeverity.LOW,
                         description = "Suspicious capability: App '${pkg.packageName}' has both Storage and Internet access.",
                         metadata = mapOf("package" to pkg.packageName)

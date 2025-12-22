@@ -50,6 +50,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
     
     // Hilt
     implementation(libs.hilt.android)
@@ -63,6 +64,12 @@ dependencies {
     
     // Navigation
     implementation(libs.androidx.navigation.compose)
+
+    // Lottie
+    implementation(libs.lottie.compose)
+
+    // Official Splash Screen API
+    implementation(libs.androidx.core.splashscreen)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
