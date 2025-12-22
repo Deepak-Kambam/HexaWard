@@ -1,8 +1,5 @@
 package com.example.hexaward.presentation
 
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.pager.VerticalPager
-import androidx.compose.foundation.pager.rememberPagerState as rememberVerticalPagerState
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -39,7 +36,6 @@ import com.example.hexaward.domain.model.SignalSeverity
 import com.example.hexaward.domain.model.SignalType
 import com.example.hexaward.domain.model.SignalSource
 import java.util.concurrent.TimeUnit
-import kotlin.math.absoluteValue
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -221,101 +217,10 @@ fun DashboardContent(riskStatus: RiskStatus, animatedScoreValue: Float, themeCol
                 EmptyStateCard()
             }
         } else {
-            item {
-                AlertCarousel(alerts = riskStatus.triggers.reversed())
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun AlertCarousel(alerts: List<SecuritySignal>) {
-    val pagerState = rememberVerticalPagerState(pageCount = { alerts.size })
-    
-    // Auto-scroll effect - only trigger on Unit, not on page changes
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(5000) // Stay on each card for 5 seconds
-            val nextPage = (pagerState.currentPage + 1) % alerts.size
-            pagerState.animateScrollToPage(
-                page = nextPage,
-                animationSpec = tween(
-                    durationMillis = 600,
-                    easing = FastOutSlowInEasing
-                )
-            )
-        }
-    }
-    
-    Column {
-        // Page indicator (dots)
-        if (alerts.size > 1) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${pagerState.currentPage + 1} of ${alerts.size}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                )
-            }
-        }
-        
-        // Vertical pager with cards
-        VerticalPager(
-            state = pagerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (alerts.size == 1) 300.dp else 280.dp)
-        ) { page ->
-            val alert = alerts[page]
-            val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction)
-            
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .graphicsLayer {
-                        // Smooth scaling animation
-                        val scale = 1f - (pageOffset.absoluteValue * 0.1f).coerceIn(0f, 0.3f)
-                        scaleX = scale
-                        scaleY = scale
-                        
-                        // Fade effect
-                        alpha = 1f - (pageOffset.absoluteValue * 0.5f).coerceIn(0f, 0.7f)
-                        
-                        // Slight rotation for depth
-                        rotationX = pageOffset * 5f
-                    }
-            ) {
+            // Display alerts as a simple vertical list instead of carousel
+            items(riskStatus.triggers.reversed()) { alert ->
                 ImprovedSignalCard(signal = alert)
-            }
-        }
-        
-        // Swipe hint for first time
-        if (alerts.size > 1 && pagerState.currentPage == 0) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Default.SwipeUp,
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = "Swipe to see more",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                )
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
@@ -409,45 +314,61 @@ fun StatusSummaryCard(riskStatus: RiskStatus, themeColor: Color) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Equal weight for all items
             StatusItem(
                 icon = Icons.Default.Shield,
                 label = "Protection",
                 value = if (riskStatus.score < 50) "Active" else "At Risk",
-                color = themeColor
+                color = themeColor,
+                modifier = Modifier.weight(1f)
             )
+            
             Divider(
                 modifier = Modifier
                     .height(40.dp)
                     .width(1.dp),
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
             )
+            
             StatusItem(
                 icon = Icons.Default.BugReport,
                 label = "Threats",
                 value = "${riskStatus.triggers.count { it.severity >= SignalSeverity.MEDIUM }}",
-                color = themeColor
+                color = themeColor,
+                modifier = Modifier.weight(1f)
             )
+            
             Divider(
                 modifier = Modifier
                     .height(40.dp)
                     .width(1.dp),
                 color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
             )
+            
             StatusItem(
                 icon = Icons.Default.Security,
                 label = "Status",
-                value = riskStatus.level.name.lowercase().capitalize(),
-                color = themeColor
+                value = riskStatus.level.name.lowercase().replaceFirstChar { it.uppercase() },
+                color = themeColor,
+                modifier = Modifier.weight(1f)
             )
         }
     }
 }
 
 @Composable
-fun StatusItem(icon: ImageVector, label: String, value: String, color: Color) {
+fun StatusItem(
+    icon: ImageVector, 
+    label: String, 
+    value: String, 
+    color: Color,
+    modifier: Modifier = Modifier
+) {
     Column(
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -462,12 +383,14 @@ fun StatusItem(icon: ImageVector, label: String, value: String, color: Color) {
             text = value,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1
         )
         Text(
             text = label,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
         )
     }
 }
