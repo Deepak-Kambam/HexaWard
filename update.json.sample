@@ -1,0 +1,5 @@
+{
+  "version": "1.1.0",
+  "downloadUrl": "https://github.com/YOUR_USERNAME/HexaWard/releases/download/v1.1.0/hexaward-v1.1.0.apk",
+  "releaseNotes": "🎉 What's New in v1.1.0:\n\n• Improved dashboard with better UI\n• App icons now shown in alert cards\n• Action buttons to quickly open app settings\n• Fixed screen rotation issues\n• In-app update notifications\n• Bug fixes and performance improvements"
+}

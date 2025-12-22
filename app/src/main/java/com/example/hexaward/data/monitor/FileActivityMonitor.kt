@@ -4,6 +4,7 @@ import android.content.Context
 import com.example.hexaward.domain.model.SecuritySignal
 import com.example.hexaward.domain.model.SignalSeverity
 import com.example.hexaward.domain.model.SignalSource
+import com.example.hexaward.domain.model.SignalType
 import com.example.hexaward.domain.monitor.SignalMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -21,19 +22,16 @@ class FileActivityMonitor @Inject constructor(
     override val signals: SharedFlow<SecuritySignal> = _signals.asSharedFlow()
 
     override fun startMonitoring() {
-        // Implementation would use FileObserver or MediaStore queries
-        // to detect rapid file renames or modifications.
-        // For a skeleton, we just define the hook.
+        // Implementation for detecting rapid file renames or modifications
     }
 
-    override fun stopMonitoring() {
-        // Stop observation
-    }
+    override fun stopMonitoring() {}
 
-    private suspend fun emitSignal(description: String, severity: SignalSeverity) {
+    private suspend fun emitSignal(description: String, type: SignalType, severity: SignalSeverity) {
         _signals.emit(
             SecuritySignal(
                 source = SignalSource.FILE_ACTIVITY,
+                type = type,
                 severity = severity,
                 description = description
             )

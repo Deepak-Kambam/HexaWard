@@ -38,4 +38,8 @@ abstract class SecurityModule {
     @Binds
     @IntoSet
     abstract fun bindNetworkObserver(monitor: NetworkObserver): SignalMonitor
+
+    @Binds
+    @IntoSet
+    abstract fun bindHoneyfileMonitor(monitor: HoneyfileMonitor): SignalMonitor
 }

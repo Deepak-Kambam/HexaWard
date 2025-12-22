@@ -1,10 +1,7 @@
 package com.example.hexaward.data.analyzer
 
 import com.example.hexaward.domain.analyzer.BehaviorAnalyzer
-import com.example.hexaward.domain.model.RiskLevel
-import com.example.hexaward.domain.model.RiskStatus
-import com.example.hexaward.domain.model.SecuritySignal
-import com.example.hexaward.domain.model.SignalSeverity
+import com.example.hexaward.domain.model.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +10,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DefaultBehaviorAnalyzer @Inject constructor() : BehaviorAnalyzer {
+class DefaultBehaviorAnalyzer @Inject constructor(
+    private val scoringEngine: RiskScoringEngine
+) : BehaviorAnalyzer {
 
     private val _riskStatus = MutableStateFlow(RiskStatus(0, RiskLevel.SAFE, emptyList()))
     override val riskStatus: StateFlow<RiskStatus> = _riskStatus.asStateFlow()
@@ -22,24 +21,20 @@ class DefaultBehaviorAnalyzer @Inject constructor() : BehaviorAnalyzer {
 
     override suspend fun processSignal(signal: SecuritySignal) {
         recentSignals.add(signal)
+        
+        // Pass signal to the scoring engine
+        scoringEngine.processSignal(signal.type)
+
         // Keep only recent signals (e.g., last 1 hour)
         val oneHourAgo = System.currentTimeMillis() - 3600000
         recentSignals.removeAll { it.timestamp < oneHourAgo }
 
-        calculateRisk()
+        updateRiskStatus()
     }
 
-    private fun calculateRisk() {
-        var score = 0
-        recentSignals.forEach { signal ->
-            score += when (signal.severity) {
-                SignalSeverity.LOW -> 5
-                SignalSeverity.MEDIUM -> 15
-                SignalSeverity.HIGH -> 30
-                SignalSeverity.CRITICAL -> 50
-            }
-        }
-
+    private fun updateRiskStatus() {
+        val score = scoringEngine.currentRiskScore.value
+        
         val level = when {
             score >= 80 -> RiskLevel.CRITICAL
             score >= 50 -> RiskLevel.HIGH
@@ -48,6 +43,12 @@ class DefaultBehaviorAnalyzer @Inject constructor() : BehaviorAnalyzer {
             else -> RiskLevel.SAFE
         }
 
-        _riskStatus.update { it.copy(score = score.coerceAtMost(100), level = level, triggers = recentSignals.toList()) }
+        _riskStatus.update { 
+            it.copy(
+                score = score, 
+                level = level, 
+                triggers = recentSignals.toList()
+            ) 
+        }
     }
 }
