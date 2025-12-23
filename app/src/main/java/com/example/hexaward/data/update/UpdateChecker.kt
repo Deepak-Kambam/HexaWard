@@ -10,25 +10,21 @@ package com.example.hexaward.data.update
  * 
  * 2. PRODUCTION SETUP:
  *    a) Set TEST_MODE = false
- *    b) Host update.json file on:
- *       - GitHub Pages (free): https://yourusername.github.io/hexaward/update.json
- *       - Your own server: https://yourdomain.com/hexaward/update.json
- *       - Firebase Hosting (free)
- *       - Any web hosting
+ *    b) Use GitHub Releases:
+ *       - Create a GitHub release with your APK as an asset
+ *       - Update UPDATE_CHECK_URL to your GitHub releases API endpoint
+ *       - Example: https://api.github.com/repos/username/repo/releases/latest
  *    
- *    c) update.json format (see update.json.sample in project root):
- *       {
- *         "version": "1.1.0",
- *         "downloadUrl": "https://github.com/user/repo/releases/download/v1.1.0/app.apk",
- *         "releaseNotes": "What's new..."
- *       }
+ *    c) GitHub Release format:
+ *       - Create a release on GitHub with tag format "v1.0.0"
+ *       - Upload your APK file as a release asset
+ *       - Release notes will be automatically used
  *    
- *    d) Update UPDATE_CHECK_URL with your JSON file URL
+ *    d) Update UPDATE_CHECK_URL with your GitHub releases API URL
  *    
  * 3. RELEASE PROCESS:
  *    - Build APK: Build > Build Bundle(s) / APK(s) > Build APK(s)
- *    - Upload APK to GitHub Releases or your server
- *    - Update update.json with new version and download URL
+ *    - Create a new GitHub release and upload the APK
  *    - App will auto-check and notify users!
  */
 
@@ -69,17 +65,11 @@ class UpdateChecker @Inject constructor(
         private const val CHANNEL_ID = "app_updates"
         private const val NOTIFICATION_ID = 1001
         
-        // OPTION 1: Use your own server/hosting (Recommended)
-        // Upload a JSON file to your web hosting or GitHub Pages
-        // Example: https://yourusername.github.io/hexaward/update.json
-        private const val UPDATE_CHECK_URL = "https://raw.githubusercontent.com/Deepak-Kambam/HexaWard/master/update.json"
-        
-        // OPTION 2: For testing, use a mock server or local testing
-        // Uncomment below and replace with your test URL
-        // private const val UPDATE_CHECK_URL = "http://10.0.2.2:8000/update.json" // Android emulator
+        // GitHub Releases API URL (update with your repository)
+        private const val UPDATE_CHECK_URL = "https://api.github.com/repos/Deepak-Kambam/HexaWard/releases/latest"
         
         // Set to true to enable test mode (shows fake update for testing)
-        private const val TEST_MODE = true
+        private const val TEST_MODE = false  // Changed from true to false to use GitHub API by default
     }
 
     init {
@@ -128,7 +118,7 @@ class UpdateChecker @Inject constructor(
                 )
             }
             
-            val (latestVersion, downloadUrl, releaseNotes) = fetchLatestVersion()
+            val (latestVersion, downloadUrl, releaseNotes) = fetchLatestVersionFromGitHub()
                 ?: return@withContext null
             
             Log.d(TAG, "Latest version: $latestVersion")
