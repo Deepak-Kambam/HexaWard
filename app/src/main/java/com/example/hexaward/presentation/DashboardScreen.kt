@@ -5,11 +5,13 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -28,23 +30,45 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.Image
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.drawable.toBitmap
 import com.example.hexaward.domain.model.RiskStatus
 import com.example.hexaward.domain.model.SecuritySignal
 import com.example.hexaward.domain.model.SignalSeverity
 import com.example.hexaward.domain.model.SignalType
-import com.example.hexaward.domain.model.SignalSource
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.delay
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
+import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
     viewModel: MainViewModel,
+    onOpenDrawer: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     val riskStatus by viewModel.riskStatus.collectAsState()
+    val density = LocalDensity.current
+    
+    val industrialCardShape = remember(density) {
+        GenericShape { size, _ ->
+            val cut = with(density) { 24.dp.toPx() }
+            moveTo(0f, 0f)
+            lineTo(size.width - cut, 0f)
+            lineTo(size.width, cut)
+            lineTo(size.width, size.height)
+            lineTo(cut, size.height)
+            lineTo(0f, size.height - cut)
+            close()
+        }
+    }
     
     val startupAnimatable = remember { Animatable(0f) }
     
@@ -80,14 +104,19 @@ fun DashboardScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Lock, contentDescription = null, tint = animatedThemeColor)
+                        Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = animatedThemeColor)
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "HEXAWARD", 
-                            fontWeight = FontWeight.ExtraBold, 
-                            letterSpacing = 2.sp,
+                            fontWeight = FontWeight.Black, 
+                            letterSpacing = 4.sp,
                             color = animatedThemeColor
                         )
+                    }
+                },
+                navigationIcon = {
+                    IconButton(onClick = onOpenDrawer) {
+                        Icon(Icons.Default.Menu, contentDescription = "Menu", tint = animatedThemeColor)
                     }
                 },
                 actions = {
@@ -104,26 +133,130 @@ fun DashboardScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            animatedThemeColor.copy(alpha = 0.15f),
-                            MaterialTheme.colorScheme.surface
-                        )
-                    )
-                )
                 .padding(padding)
         ) {
-            DashboardContent(riskStatus, currentAnimatedValue, animatedThemeColor)
+            DashboardContent(riskStatus, currentAnimatedValue, animatedThemeColor, industrialCardShape, context = androidx.compose.ui.platform.LocalContext.current)
         }
     }
 }
 
+enum class ThreatCategory(val displayName: String, val icon: ImageVector, val color: Color) {
+    CRITICAL("Critical Threats", Icons.Default.Warning, Color(0xFFF44336)),
+    FILE_THREATS("File Activity", Icons.Default.FolderDelete, Color(0xFFFF9800)),
+    NETWORK_THREATS("Network Activity", Icons.Default.WifiOff, Color(0xFF2196F3)),
+    PERMISSION_THREATS("Permission Issues", Icons.Default.GppBad, Color(0xFF9C27B0)),
+    BACKGROUND_THREATS("Background Activity", Icons.Default.Terminal, Color(0xFF607D8B)),
+    RESOURCE_THREATS("Resource Abuse", Icons.Default.Speed, Color(0xFFFF5722)),
+    ALL("All Threats", Icons.AutoMirrored.Filled.List, Color(0xFF4CAF50))
+}
+
+enum class AppCategory(val displayName: String, val icon: ImageVector, val color: Color, val keywords: List<String>) {
+    PAYMENT("Payment", Icons.Default.Payment, Color(0xFF4CAF50), listOf("pay", "bank", "wallet", "money", "finance", "upi", "paytm", "phonepe", "gpay")),
+    SOCIAL_MEDIA("Social Media", Icons.Default.Groups, Color(0xFF2196F3), listOf("social", "chat", "messenger", "whatsapp", "telegram", "instagram", "facebook", "twitter", "snapchat")),
+    ENTERTAINMENT("Entertainment", Icons.Default.Movie, Color(0xFF9C27B0), listOf("video", "music", "stream", "youtube", "netflix", "spotify", "game", "play")),
+    SHOPPING("Shopping", Icons.Default.ShoppingCart, Color(0xFFFF9800), listOf("shop", "store", "amazon", "flipkart", "cart", "buy", "mall", "ecommerce")),
+    PRODUCTIVITY("Productivity", Icons.Default.Work, Color(0xFF607D8B), listOf("office", "document", "note", "calendar", "email", "drive", "docs", "sheets")),
+    COMMUNICATION("Communication", Icons.Default.Phone, Color(0xFF00BCD4), listOf("call", "sms", "dialer", "contact", "phone", "message")),
+    SYSTEM("System", Icons.Default.Settings, Color(0xFF795548), listOf("android", "system", "google", "launcher", "service")),
+    ALL_APPS("All Apps", Icons.AutoMirrored.Filled.List, Color(0xFF4CAF50), emptyList())
+}
+
+fun getAppCategory(packageName: String, context: android.content.Context): AppCategory {
+    try {
+        val appInfo = context.packageManager.getApplicationInfo(packageName, 0)
+        val appName = context.packageManager.getApplicationLabel(appInfo).toString().lowercase()
+        val pkgName = packageName.lowercase()
+        
+        for (category in AppCategory.entries.filter { it != AppCategory.ALL_APPS }) {
+            if (category.keywords.any { keyword -> 
+                appName.contains(keyword) || pkgName.contains(keyword)
+            }) {
+                return category
+            }
+        }
+    } catch (e: Exception) {
+        // Package not found or error
+    }
+    return AppCategory.ALL_APPS
+}
+
+fun SecuritySignal.getCategory(): ThreatCategory {
+    return when {
+        severity == SignalSeverity.CRITICAL -> ThreatCategory.CRITICAL
+        type == SignalType.MASS_FILE_MODIFICATION || type == SignalType.SUSPICIOUS_EXTENSION || type == SignalType.HONEYFILE_TOUCHED -> ThreatCategory.FILE_THREATS
+        type == SignalType.NETWORK_ANOMALY -> ThreatCategory.NETWORK_THREATS
+        type == SignalType.SUSPICIOUS_PERMISSION_COMBO -> ThreatCategory.PERMISSION_THREATS
+        type == SignalType.UNAUTHORIZED_BACKGROUND_START -> ThreatCategory.BACKGROUND_THREATS
+        type == SignalType.RESOURCE_SPIKE -> ThreatCategory.RESOURCE_THREATS
+        else -> ThreatCategory.ALL
+    }
+}
+
 @Composable
-fun DashboardContent(riskStatus: RiskStatus, animatedScoreValue: Float, themeColor: Color) {
+fun DashboardContent(
+    riskStatus: RiskStatus, 
+    animatedScoreValue: Float, 
+    themeColor: Color,
+    industrialCardShape: androidx.compose.ui.graphics.Shape,
+    context: android.content.Context
+) {
     val listState = rememberLazyListState()
+    var selectedThreatCategory by remember { mutableStateOf(ThreatCategory.ALL) }
+    var selectedAppCategory by remember { mutableStateOf(AppCategory.ALL_APPS) }
     
-    // Improved fade effect that allows scrolling to top
+    // Group threats by threat category
+    val categorizedThreats = remember(riskStatus.triggers) {
+        riskStatus.triggers.groupBy { it.getCategory() }
+    }
+    
+    // Group threats by app category
+    val appCategorizedThreats = remember(riskStatus.triggers) {
+        riskStatus.triggers.groupBy { signal ->
+            signal.metadata["package"]?.let { getAppCategory(it, context) } ?: AppCategory.ALL_APPS
+        }
+    }
+    
+    // Get threat count per threat category
+    val threatCategoryCount = remember(categorizedThreats) {
+        ThreatCategory.entries.associateWith { category ->
+            when (category) {
+                ThreatCategory.ALL -> riskStatus.triggers.size
+                else -> categorizedThreats[category]?.size ?: 0
+            }
+        }
+    }
+    
+    // Get threat count per app category
+    val appCategoryCount = remember(appCategorizedThreats) {
+        AppCategory.entries.associateWith { category ->
+            when (category) {
+                AppCategory.ALL_APPS -> riskStatus.triggers.size
+                else -> appCategorizedThreats[category]?.size ?: 0
+            }
+        }
+    }
+    
+    // Filter threats based on selected categories
+    val filteredThreats = remember(riskStatus.triggers, selectedThreatCategory, selectedAppCategory) {
+        var filtered = riskStatus.triggers
+        
+        // Filter by threat category
+        if (selectedThreatCategory != ThreatCategory.ALL) {
+            filtered = filtered.filter { it.getCategory() == selectedThreatCategory }
+        }
+        
+        // Filter by app category
+        if (selectedAppCategory != AppCategory.ALL_APPS) {
+            filtered = filtered.filter { signal ->
+                signal.metadata["package"]?.let { 
+                    getAppCategory(it, context) == selectedAppCategory 
+                } ?: false
+            }
+        }
+        
+        filtered
+    }
+    
     val meterAlpha by remember {
         derivedStateOf {
             val firstVisibleIndex = listState.firstVisibleItemIndex
@@ -132,7 +265,6 @@ fun DashboardContent(riskStatus: RiskStatus, animatedScoreValue: Float, themeCol
             when {
                 firstVisibleIndex > 0 -> 0f
                 else -> {
-                    // Smooth fade over 400px instead of 500px
                     val fadeDistance = 400f
                     (1f - (firstVisibleOffset.toFloat() / fadeDistance)).coerceIn(0f, 1f)
                 }
@@ -152,8 +284,8 @@ fun DashboardContent(riskStatus: RiskStatus, animatedScoreValue: Float, themeCol
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(top = 8.dp, bottom = 32.dp)
     ) {
         item {
             Box(
@@ -171,56 +303,133 @@ fun DashboardContent(riskStatus: RiskStatus, animatedScoreValue: Float, themeCol
             }
         }
         
-        // Status Summary Card
         item {
-            StatusSummaryCard(riskStatus, themeColor)
+            StatusSummaryCard(riskStatus, themeColor, industrialCardShape)
         }
         
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Notifications, 
-                    contentDescription = null, 
-                    modifier = Modifier.size(20.dp), 
-                    tint = themeColor
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Recent Activity",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = themeColor
-                )
-                Spacer(Modifier.weight(1f))
-                if (riskStatus.triggers.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = themeColor.copy(alpha = 0.1f)
+        // Category Filter Section
+        if (riskStatus.triggers.isNotEmpty()) {
+            item {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp, 16.dp)
+                                .background(themeColor)
+                        )
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            text = "${riskStatus.triggers.size}",
-                            style = MaterialTheme.typography.labelMedium,
+                            text = "THREAT VAULT",
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 2.sp,
+                            color = themeColor
+                        )
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            text = "${filteredThreats.size} ITEMS",
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
-                            color = themeColor,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            color = themeColor.copy(alpha = 0.7f)
                         )
                     }
+                    
+                    Spacer(Modifier.height(12.dp))
+                    
+                    // Threat Category chips
+                    Text(
+                        text = "THREAT TYPE",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        items(ThreatCategory.entries.size) { index ->
+                            val category = ThreatCategory.entries[index]
+                            val count = threatCategoryCount[category] ?: 0
+                            if (count > 0 || category == ThreatCategory.ALL) {
+                                CategoryChip(
+                                    category = category,
+                                    count = count,
+                                    isSelected = selectedThreatCategory == category,
+                                    onClick = { selectedThreatCategory = category },
+                                    industrialCardShape = industrialCardShape
+                                )
+                            }
+                        }
+                    }
+                    
+                    Spacer(Modifier.height(12.dp))
+                    
+                    // App Category chips
+                    Text(
+                        text = "APP CATEGORY",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        items(AppCategory.entries.size) { index ->
+                            val category = AppCategory.entries[index]
+                            val count = appCategoryCount[category] ?: 0
+                            if (count > 0 || category == AppCategory.ALL_APPS) {
+                                AppCategoryChip(
+                                    category = category,
+                                    count = count,
+                                    isSelected = selectedAppCategory == category,
+                                    onClick = { selectedAppCategory = category },
+                                    industrialCardShape = industrialCardShape
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(4.dp, 16.dp)
+                            .background(themeColor)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "THREAT VAULT",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                        color = themeColor
+                    )
                 }
             }
         }
         
-        if (riskStatus.triggers.isEmpty()) {
+        if (filteredThreats.isEmpty()) {
             item {
-                EmptyStateCard()
+                if (selectedThreatCategory == ThreatCategory.ALL && selectedAppCategory == AppCategory.ALL_APPS) {
+                    EmptyStateCard(themeColor, industrialCardShape)
+                } else {
+                    EmptyFilterCard(selectedThreatCategory, selectedAppCategory, industrialCardShape)
+                }
             }
         } else {
-            // Display alerts as a simple vertical list instead of carousel
-            items(riskStatus.triggers.reversed()) { alert ->
-                ImprovedSignalCard(signal = alert)
-                Spacer(Modifier.height(8.dp))
+            items(filteredThreats.reversed()) { alert ->
+                ImprovedSignalCard(signal = alert, themeColor = themeColor, industrialCardShape = industrialCardShape, context = context)
             }
         }
     }
@@ -231,127 +440,140 @@ fun RiskGauge(status: RiskStatus, animatedValue: Float, color: Color) {
     val displayScore = animatedValue.toInt()
     
     val statusMessage = when {
-        displayScore < 25 -> "Well Protected"
-        displayScore < 50 -> "Minor Threats"
-        displayScore < 75 -> "Be Cautious"
-        else -> "Action Needed!"
+        displayScore < 25 -> "PROTECTION OPTIMAL"
+        displayScore < 50 -> "THREATS DETECTED"
+        displayScore < 75 -> "CAUTION REQUIRED"
+        else -> "CRITICAL BREACH"
     }
 
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(240.dp)) {
-            if (displayScore > 70) {
-                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-                val scale by infiniteTransition.animateFloat(
-                    initialValue = 1f,
-                    targetValue = 1.15f,
-                    animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse),
-                    label = "scale"
-                )
-                Box(
-                    modifier = Modifier
-                        .size(190.dp)
-                        .clip(CircleShape)
-                        .background(color.copy(alpha = 0.1f * scale))
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(260.dp)) {
+            Canvas(modifier = Modifier.size(240.dp)) {
+                drawArc(
+                    color = color.copy(alpha = 0.05f),
+                    startAngle = 0f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(width = 2.dp.toPx())
                 )
             }
 
-            Canvas(modifier = Modifier.size(200.dp)) {
+            if (displayScore > 70) {
+                val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+                val pulseScale by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = 1.1f,
+                    animationSpec = infiniteRepeatable(tween(1000), RepeatMode.Reverse),
+                    label = "pulse"
+                )
+                Box(
+                    modifier = Modifier
+                        .size(200.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, color.copy(alpha = 0.2f * pulseScale), CircleShape)
+                )
+            }
+
+            Canvas(modifier = Modifier.size(220.dp)) {
                 drawArc(
                     color = color.copy(alpha = 0.1f),
                     startAngle = 135f,
                     sweepAngle = 270f,
                     useCenter = false,
-                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 20.dp.toPx(), cap = StrokeCap.Butt)
                 )
                 drawArc(
                     color = color,
                     startAngle = 135f,
                     sweepAngle = (animatedValue / 100f) * 270f,
                     useCenter = false,
-                    style = Stroke(width = 18.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 20.dp.toPx(), cap = StrokeCap.Butt)
                 )
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = "$displayScore",
-                    fontSize = 54.sp,
+                    fontSize = 64.sp,
                     fontWeight = FontWeight.Black,
-                    color = color
+                    color = color,
+                    letterSpacing = (-2).sp
                 )
                 Text(
                     text = status.level.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = color.copy(alpha = 0.9f),
-                    letterSpacing = 1.sp
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Black,
+                    color = color,
+                    letterSpacing = 2.sp
                 )
             }
         }
         
-        // Status message below the gauge
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = statusMessage,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = color,
-            letterSpacing = 0.5.sp
-        )
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .border(1.dp, color.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                .padding(horizontal = 12.dp, vertical = 4.dp)
+        ) {
+            Text(
+                text = statusMessage,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = color,
+                letterSpacing = 1.sp
+            )
+        }
     }
 }
 
 @Composable
-fun StatusSummaryCard(riskStatus: RiskStatus, themeColor: Color) {
+fun StatusSummaryCard(riskStatus: RiskStatus, themeColor: Color, industrialCardShape: androidx.compose.ui.graphics.Shape) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(industrialCardShape)
+            .border(1.dp, themeColor.copy(alpha = 0.2f), industrialCardShape),
         colors = CardDefaults.cardColors(
-            containerColor = themeColor.copy(alpha = 0.08f)
+            containerColor = Color.White.copy(alpha = 0.03f)
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(20.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Equal weight for all items
-            StatusItem(
-                icon = Icons.Default.Shield,
-                label = "Protection",
-                value = if (riskStatus.score < 50) "Active" else "At Risk",
-                color = themeColor,
-                modifier = Modifier.weight(1f)
-            )
-            
-            Divider(
-                modifier = Modifier
-                    .height(40.dp)
-                    .width(1.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
-            
-            StatusItem(
-                icon = Icons.Default.BugReport,
-                label = "Threats",
-                value = "${riskStatus.triggers.count { it.severity >= SignalSeverity.MEDIUM }}",
-                color = themeColor,
-                modifier = Modifier.weight(1f)
-            )
-            
-            Divider(
-                modifier = Modifier
-                    .height(40.dp)
-                    .width(1.dp),
-                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-            )
-            
             StatusItem(
                 icon = Icons.Default.Security,
-                label = "Status",
-                value = riskStatus.level.name.lowercase().replaceFirstChar { it.uppercase() },
+                label = "SHIELD",
+                value = if (riskStatus.score < 50) "ACTIVE" else "WARN",
+                color = themeColor,
+                modifier = Modifier.weight(1f)
+            )
+            
+            VerticalDivider(
+                modifier = Modifier.height(40.dp),
+                color = themeColor.copy(alpha = 0.1f)
+            )
+            
+            StatusItem(
+                icon = Icons.Default.Memory,
+                label = "SYSTEM",
+                value = "${riskStatus.score}%",
+                color = themeColor,
+                modifier = Modifier.weight(1f)
+            )
+            
+            VerticalDivider(
+                modifier = Modifier.height(40.dp),
+                color = themeColor.copy(alpha = 0.1f)
+            )
+            
+            StatusItem(
+                icon = Icons.Default.Analytics,
+                label = "ENGINE",
+                value = riskStatus.level.name.take(3),
                 color = themeColor,
                 modifier = Modifier.weight(1f)
             )
@@ -369,41 +591,41 @@ fun StatusItem(
 ) {
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = color,
+            tint = color.copy(alpha = 0.6f),
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.height(4.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.Black,
+            color = color,
             maxLines = 1
         )
         Text(
             text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.Gray,
+            letterSpacing = 1.sp
         )
     }
 }
 
 @Composable
-fun EmptyStateCard() {
+fun EmptyStateCard(themeColor: Color, industrialCardShape: androidx.compose.ui.graphics.Shape) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp),
-        shape = RoundedCornerShape(20.dp),
+            .clip(industrialCardShape)
+            .border(1.dp, Color(0xFF4CAF50).copy(alpha = 0.2f), industrialCardShape),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF4CAF50).copy(alpha = 0.08f)
+            containerColor = Color(0xFF4CAF50).copy(alpha = 0.03f)
         )
     ) {
         Column(
@@ -413,37 +635,269 @@ fun EmptyStateCard() {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = Icons.Default.VerifiedUser,
                 contentDescription = null,
                 tint = Color(0xFF4CAF50),
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(48.dp)
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                text = "All Clear!",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
+                text = "SYSTEM SECURE",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
                 color = Color(0xFF4CAF50)
             )
-            Spacer(Modifier.height(8.dp))
             Text(
-                text = "No security threats detected. Your device is protected.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                text = "NO ANOMALIES DETECTED IN LAST SCAN",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp)
             )
         }
     }
 }
 
 @Composable
-fun ImprovedSignalCard(signal: SecuritySignal) {
+fun EmptyCategoryCard(category: ThreatCategory, industrialCardShape: androidx.compose.ui.graphics.Shape) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(industrialCardShape)
+            .border(1.dp, category.color.copy(alpha = 0.2f), industrialCardShape),
+        colors = CardDefaults.cardColors(
+            containerColor = category.color.copy(alpha = 0.03f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                tint = category.color,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "NO ${category.displayName.uppercase()}",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                color = category.color
+            )
+            Text(
+                text = "This category has no detected threats",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyFilterCard(threatCategory: ThreatCategory, appCategory: AppCategory, industrialCardShape: androidx.compose.ui.graphics.Shape) {
+    val displayColor = if (threatCategory != ThreatCategory.ALL) threatCategory.color else appCategory.color
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(industrialCardShape)
+            .border(1.dp, displayColor.copy(alpha = 0.2f), industrialCardShape),
+        colors = CardDefaults.cardColors(
+            containerColor = displayColor.copy(alpha = 0.03f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.FilterAlt,
+                contentDescription = null,
+                tint = displayColor,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                text = "NO MATCHING THREATS",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 2.sp,
+                color = displayColor
+            )
+            
+            Column(
+                modifier = Modifier.padding(top = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                if (threatCategory != ThreatCategory.ALL) {
+                    Text(
+                        text = "Type: ${threatCategory.displayName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+                }
+                if (appCategory != AppCategory.ALL_APPS) {
+                    Text(
+                        text = "Category: ${appCategory.displayName}",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AppCategoryChip(
+    category: AppCategory,
+    count: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    industrialCardShape: androidx.compose.ui.graphics.Shape
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) category.color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+        label = "bg_color"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) category.color else Color.White.copy(alpha = 0.1f),
+        label = "border_color"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) category.color else Color.White.copy(alpha = 0.6f),
+        label = "text_color"
+    )
+    
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
+        color = backgroundColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                tint = if (isSelected) category.color else Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = category.displayName.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                color = textColor,
+                letterSpacing = 1.sp
+            )
+            if (count > 0) {
+                Box(
+                    modifier = Modifier
+                        .background(if (isSelected) category.color else Color.White.copy(0.2f), CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = if (isSelected) Color.White else Color.White.copy(0.8f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryChip(
+    category: ThreatCategory,
+    count: Int,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    industrialCardShape: androidx.compose.ui.graphics.Shape
+) {
+    val backgroundColor by animateColorAsState(
+        targetValue = if (isSelected) category.color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+        label = "bg_color"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (isSelected) category.color else Color.White.copy(alpha = 0.1f),
+        label = "border_color"
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (isSelected) category.color else Color.White.copy(alpha = 0.6f),
+        label = "text_color"
+    )
+    
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
+        color = backgroundColor
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = category.icon,
+                contentDescription = null,
+                tint = if (isSelected) category.color else Color.White.copy(alpha = 0.6f),
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = if (category == ThreatCategory.ALL) "ALL" else category.displayName.uppercase(),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                color = textColor,
+                letterSpacing = 1.sp
+            )
+            if (count > 0) {
+                Box(
+                    modifier = Modifier
+                        .background(if (isSelected) category.color else Color.White.copy(0.2f), CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = count.toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = if (isSelected) Color.White else Color.White.copy(0.8f),
+                        fontSize = 10.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ImprovedSignalCard(signal: SecuritySignal, themeColor: Color, industrialCardShape: androidx.compose.ui.graphics.Shape, context: android.content.Context) {
     val severityData = getSeverityData(signal.severity)
     val signalInfo = getSignalInfo(signal)
     val timeAgo = getTimeAgo(signal.timestamp)
-    val context = androidx.compose.ui.platform.LocalContext.current
     
-    // Get app icon if package name is available
     val appIcon = remember(signal.metadata["package"]) {
         signal.metadata["package"]?.let { packageName ->
             try {
@@ -455,28 +909,28 @@ fun ImprovedSignalCard(signal: SecuritySignal) {
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(industrialCardShape)
+            .border(1.dp, severityData.color.copy(alpha = 0.2f), industrialCardShape),
         colors = CardDefaults.cardColors(
-            containerColor = severityData.color.copy(alpha = 0.08f)
-        ),
-        border = BorderStroke(1.dp, severityData.color.copy(alpha = 0.2f))
+            containerColor = Color.White.copy(alpha = 0.02f)
+        )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Icon - Show app icon if available, otherwise show threat icon
                 Surface(
                     modifier = Modifier.size(44.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (appIcon != null) Color.Transparent else severityData.color.copy(alpha = 0.15f)
+                    shape = RoundedCornerShape(8.dp),
+                    color = severityData.color.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, severityData.color.copy(alpha = 0.2f))
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (appIcon != null) {
@@ -484,8 +938,8 @@ fun ImprovedSignalCard(signal: SecuritySignal) {
                                 bitmap = appIcon.toBitmap().asImageBitmap(),
                                 contentDescription = "App Icon",
                                 modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(4.dp))
                             )
                         } else {
                             Icon(
@@ -498,180 +952,96 @@ fun ImprovedSignalCard(signal: SecuritySignal) {
                     }
                 }
                 
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(16.dp))
                 
-                // Title and time
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = signalInfo.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        text = signalInfo.title.uppercase(),
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        letterSpacing = 1.sp
                     )
                     Text(
-                        text = timeAgo,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        text = timeAgo.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray
                     )
                 }
                 
-                // Severity badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = severityData.color.copy(alpha = 0.15f)
+                Box(
+                    modifier = Modifier
+                        .background(severityData.color.copy(alpha = 0.1f), RoundedCornerShape(4.dp))
+                        .border(1.dp, severityData.color.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = severityData.label,
+                        text = severityData.label.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        color = severityData.color,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        fontWeight = FontWeight.Black,
+                        color = severityData.color
                     )
                 }
             }
             
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             
-            // Description
             Text(
                 text = signalInfo.description,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
-                lineHeight = 20.sp
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f),
+                lineHeight = 18.sp
             )
             
-            // Additional info if available
-            signal.metadata["package"]?.let { packageName ->
-                Spacer(Modifier.height(8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Apps,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = "App: ${packageName.substringAfterLast('.')}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            Spacer(Modifier.height(16.dp))
             
-            // Recommendation
-            if (signalInfo.recommendation.isNotEmpty()) {
-                Spacer(Modifier.height(12.dp))
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Icon(
-                            Icons.Default.Lightbulb,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = signalInfo.recommendation,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            lineHeight = 18.sp
-                        )
-                    }
-                }
-            }
-            
-            // Action Buttons
-            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                // View App Info button (if package name available)
-                signal.metadata["package"]?.let { packageName ->
-                    OutlinedButton(
-                        onClick = {
+                OutlinedButton(
+                    onClick = { 
+                        signal.metadata["package"]?.let { packageName ->
                             try {
                                 val intent = android.content.Intent(
                                     android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                                     android.net.Uri.parse("package:$packageName")
                                 )
                                 context.startActivity(intent)
-                            } catch (e: Exception) {
-                                // Handle error silently
-                            }
-                        },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = severityData.color
-                        ),
-                        border = BorderStroke(1.dp, severityData.color.copy(alpha = 0.5f))
-                    ) {
-                        Icon(
-                            Icons.Default.Info,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text(
-                            "App Info",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-                
-                // View in Settings button
-                OutlinedButton(
-                    onClick = {
-                        try {
-                            val intent = when (signal.type) {
-                                SignalType.SUSPICIOUS_PERMISSION_COMBO -> 
-                                    android.content.Intent(android.provider.Settings.ACTION_APPLICATION_SETTINGS)
-                                SignalType.RESOURCE_SPIKE -> 
-                                    android.content.Intent(android.provider.Settings.ACTION_BATTERY_SAVER_SETTINGS)
-                                SignalType.NETWORK_ANOMALY -> 
-                                    android.content.Intent(android.provider.Settings.ACTION_DATA_USAGE_SETTINGS)
-                                SignalType.UNAUTHORIZED_BACKGROUND_START -> 
-                                    android.content.Intent(android.provider.Settings.ACTION_APPLICATION_SETTINGS)
-                                else -> 
-                                    android.content.Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)
-                            }
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            // Fallback to general settings
-                            try {
-                                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_SETTINGS))
-                            } catch (ex: Exception) {
-                                // Handle error silently
-                            }
+                            } catch (e: Exception) {}
                         }
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.primary
-                    )
+                    shape = RoundedCornerShape(8.dp),
+                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
+                    contentPadding = PaddingValues(0.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(4.dp))
                     Text(
-                        "Settings",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold
+                        "ANALYSIS",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
+                    )
+                }
+                
+                Button(
+                    onClick = { 
+                        try {
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_SECURITY_SETTINGS)
+                            context.startActivity(intent)
+                        } catch (e: Exception) {}
+                    },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = severityData.color.copy(alpha = 0.8f)),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text(
+                        "RESPOND",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White
                     )
                 }
             }
@@ -679,7 +1049,6 @@ fun ImprovedSignalCard(signal: SecuritySignal) {
     }
 }
 
-// Helper data classes and functions
 data class SeverityData(
     val color: Color,
     val label: String
@@ -692,23 +1061,23 @@ data class SignalInfo(
     val recommendation: String
 )
 
-fun getSeverityData(severity: SignalSeverity): SeverityData {
+fun getSeverityData(severity: com.example.hexaward.domain.model.SignalSeverity): SeverityData {
     return when (severity) {
-        SignalSeverity.CRITICAL -> SeverityData(
-            color = Color(0xFFB00020),
-            label = "Critical"
+        com.example.hexaward.domain.model.SignalSeverity.CRITICAL -> SeverityData(
+            color = Color(0xFFF44336),
+            label = "CRITICAL"
         )
-        SignalSeverity.HIGH -> SeverityData(
-            color = Color(0xFFFF5722),
-            label = "High"
+        com.example.hexaward.domain.model.SignalSeverity.HIGH -> SeverityData(
+            color = Color(0xFFFF9800),
+            label = "HIGH"
         )
-        SignalSeverity.MEDIUM -> SeverityData(
-            color = Color(0xFFFFC107),
-            label = "Medium"
+        com.example.hexaward.domain.model.SignalSeverity.MEDIUM -> SeverityData(
+            color = Color(0xFF2196F3),
+            label = "MEDIUM"
         )
-        SignalSeverity.LOW -> SeverityData(
-            color = Color(0xFF03DAC5),
-            label = "Low"
+        com.example.hexaward.domain.model.SignalSeverity.LOW -> SeverityData(
+            color = Color(0xFF4CAF50),
+            label = "LOW"
         )
     }
 }
@@ -717,45 +1086,45 @@ fun getSignalInfo(signal: SecuritySignal): SignalInfo {
     return when (signal.type) {
         SignalType.MASS_FILE_MODIFICATION -> SignalInfo(
             icon = Icons.Default.FolderDelete,
-            title = "Mass File Changes Detected",
-            description = "Multiple files were modified rapidly. This could indicate ransomware activity encrypting your files.",
-            recommendation = "Review recent file changes and consider backing up important data immediately."
+            title = "File Mass Mod",
+            description = "Rapid modification of multiple system-critical directories detected.",
+            recommendation = ""
         )
         SignalType.HONEYFILE_TOUCHED -> SignalInfo(
-            icon = Icons.Default.Warning,
-            title = "Decoy File Accessed",
-            description = "A protected decoy file was accessed or modified. This is a strong indicator of unauthorized file scanning.",
-            recommendation = "Investigate which app accessed this file. Consider removing suspicious apps."
+            icon = Icons.Default.ReportProblem,
+            title = "Decoy Trigger",
+            description = "Unauthorized access attempt on secure decoy system file.",
+            recommendation = ""
         )
         SignalType.SUSPICIOUS_PERMISSION_COMBO -> SignalInfo(
-            icon = Icons.Default.AdminPanelSettings,
-            title = "Risky Permissions Detected",
+            icon = Icons.Default.GppBad,
+            title = "Perm Conflict",
             description = signal.description,
-            recommendation = "Review app permissions in Settings. Consider removing unnecessary permissions."
+            recommendation = ""
         )
         SignalType.RESOURCE_SPIKE -> SignalInfo(
             icon = Icons.Default.Speed,
-            title = "Unusual Resource Usage",
-            description = "An app is consuming excessive CPU or memory. This could indicate cryptocurrency mining or other malicious activity.",
-            recommendation = "Check battery usage in Settings to identify the app causing high resource consumption."
+            title = "Power Spike",
+            description = "Abnormal CPU/Memory consumption detected by background process.",
+            recommendation = ""
         )
         SignalType.NETWORK_ANOMALY -> SignalInfo(
-            icon = Icons.Default.CloudOff,
-            title = "Suspicious Network Activity",
-            description = "Unusual network connections detected. Data may be transmitted to unknown servers.",
-            recommendation = "Monitor your data usage and consider disabling network access for suspicious apps."
+            icon = Icons.Default.WifiOff,
+            title = "Net Anomaly",
+            description = "Suspicious outbound connection to unverified remote endpoint.",
+            recommendation = ""
         )
         SignalType.SUSPICIOUS_EXTENSION -> SignalInfo(
-            icon = Icons.Default.InsertDriveFile,
-            title = "Suspicious File Extension",
-            description = "Files with unusual extensions commonly used by ransomware were detected.",
-            recommendation = "Do not open files with unknown extensions. Scan your device with antivirus software."
+            icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+            title = "Ext Violation",
+            description = "File system contains extensions associated with known encryption malware.",
+            recommendation = ""
         )
         SignalType.UNAUTHORIZED_BACKGROUND_START -> SignalInfo(
-            icon = Icons.Default.PlayArrow,
-            title = "Unauthorized Background Activity",
-            description = "An app started running in the background without your permission.",
-            recommendation = "Review background app activity in Settings and restrict unnecessary background processes."
+            icon = Icons.Default.Terminal,
+            title = "Exec Violation",
+            description = "Unauthorized background process execution attempt detected.",
+            recommendation = ""
         )
     }
 }
@@ -763,17 +1132,16 @@ fun getSignalInfo(signal: SecuritySignal): SignalInfo {
 fun getTimeAgo(timestamp: Long): String {
     val now = System.currentTimeMillis()
     val diff = now - timestamp
-    
     val seconds = TimeUnit.MILLISECONDS.toSeconds(diff)
     val minutes = TimeUnit.MILLISECONDS.toMinutes(diff)
     val hours = TimeUnit.MILLISECONDS.toHours(diff)
     val days = TimeUnit.MILLISECONDS.toDays(diff)
     
     return when {
-        seconds < 60 -> "Just now"
-        minutes < 60 -> "$minutes ${if (minutes == 1L) "minute" else "minutes"} ago"
-        hours < 24 -> "$hours ${if (hours == 1L) "hour" else "hours"} ago"
-        days < 7 -> "$days ${if (days == 1L) "day" else "days"} ago"
-        else -> "${days / 7} ${if (days / 7 == 1L) "week" else "weeks"} ago"
+        seconds < 60 -> "NOW"
+        minutes < 60 -> "${minutes}M AGO"
+        hours < 24 -> "${hours}H AGO"
+        days < 7 -> "${days}D AGO"
+        else -> "${days / 7}W AGO"
     }
 }
