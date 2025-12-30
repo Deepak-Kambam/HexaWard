@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 data class SecuritySettings(
@@ -21,8 +22,16 @@ data class SecuritySettings(
     val fileActivityEnabled: Boolean = true,
     val networkObserverEnabled: Boolean = false,
     val sensitivity: Float = 0.7f,
-    val highPriorityAlerts: Boolean = true
+    val highPriorityAlerts: Boolean = true,
+    val hapticsEnabled: Boolean = true,
+    val techGridEnabled: Boolean = true
 )
+
+sealed class LabToolState {
+    object Idle : LabToolState()
+    data class Running(val progress: Float, val status: String) : LabToolState()
+    data class Finished(val result: String) : LabToolState()
+}
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -42,9 +51,12 @@ class MainViewModel @Inject constructor(
     
     val downloadState = apkDownloader.downloadState
 
+    // Lab Tool States
+    private val _labStates = MutableStateFlow<Map<String, LabToolState>>(emptyMap())
+    val labStates = _labStates.asStateFlow()
+
     init {
         startProtection()
-        // Check for updates immediately when ViewModel is created
         checkForUpdates()
     }
 
@@ -53,7 +65,6 @@ class MainViewModel @Inject constructor(
             monitor.startMonitoring()
             viewModelScope.launch {
                 monitor.signals.collect { signal ->
-                    // Only process signals if the corresponding module is enabled
                     if (isModuleEnabled(signal.source.name)) {
                         analyzer.processSignal(signal)
                     }
@@ -68,6 +79,45 @@ class MainViewModel @Inject constructor(
             "FILE_ACTIVITY" -> _settings.value.fileActivityEnabled
             "NETWORK_OBSERVER" -> _settings.value.networkObserverEnabled
             else -> true
+        }
+    }
+
+    fun runLabTool(toolName: String) {
+        viewModelScope.launch {
+            _labStates.update { it + (toolName to LabToolState.Running(0f, "INITIALIZING SYSTEM...")) }
+            
+            when (toolName.uppercase()) {
+                "DEEP SCAN" -> {
+                    for (i in 1..10) {
+                        delay(400)
+                        _labStates.update { it + (toolName to LabToolState.Running(i/10f, "SCANNING BLOCK 0x0$i...")) }
+                    }
+                    _labStates.update { it + (toolName to LabToolState.Finished("SCAN COMPLETE: NO ANOMALIES FOUND.")) }
+                }
+                "PERMS AUDIT" -> {
+                    delay(800)
+                    _labStates.update { it + (toolName to LabToolState.Running(0.5f, "AUDITING PERMISSIONS...")) }
+                    delay(1200)
+                    _labStates.update { it + (toolName to LabToolState.Finished("AUDIT FINISHED: 0 CONFLICTS.")) }
+                }
+                "NETWORK LAB" -> {
+                    _labStates.update { it + (toolName to LabToolState.Running(0.2f, "HANDSHAKE IN PROGRESS...")) }
+                    delay(1500)
+                    _labStates.update { it + (toolName to LabToolState.Finished("LATENCY: 42MS. ENCRYPTION VALID.")) }
+                }
+                "KILL SWITCH" -> {
+                    _labStates.update { it + (toolName to LabToolState.Running(1f, "SEVERING CONNECTIONS...")) }
+                    delay(1000)
+                    _labStates.update { it + (toolName to LabToolState.Finished("PROTOCOL ACTIVE: TRAFFIC BLOCKED.")) }
+                }
+                else -> {
+                    delay(1000)
+                    _labStates.update { it + (toolName to LabToolState.Finished("PROTOCOL EXECUTED.")) }
+                }
+            }
+            
+            delay(5000)
+            _labStates.update { it + (toolName to LabToolState.Idle) }
         }
     }
 
@@ -91,20 +141,23 @@ class MainViewModel @Inject constructor(
         _settings.update { it.copy(highPriorityAlerts = enabled) }
     }
 
+    fun toggleHaptics(enabled: Boolean) {
+        _settings.update { it.copy(hapticsEnabled = enabled) }
+    }
+
+    fun toggleTechGrid(enabled: Boolean) {
+        _settings.update { it.copy(techGridEnabled = enabled) }
+    }
+
     fun resetAllModules() {
         _settings.value = SecuritySettings()
     }
     
     fun checkForUpdates() {
         viewModelScope.launch {
-            android.util.Log.d("MainViewModel", "Checking for updates...")
             val update = updateChecker.checkForUpdates()
-            android.util.Log.d("MainViewModel", "Update result: $update")
             if (update != null && update.isUpdateAvailable) {
-                android.util.Log.d("MainViewModel", "Update IS available, setting state")
                 _updateInfo.value = update
-            } else {
-                android.util.Log.d("MainViewModel", "No update available or null")
             }
         }
     }

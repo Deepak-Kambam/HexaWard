@@ -3,34 +3,47 @@ package com.example.hexaward.presentation
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.Icon
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun SplashScreen(onAnimationFinished: () -> Unit) {
+    val density = LocalDensity.current
     val infiniteTransition = rememberInfiniteTransition(label = "aesthetic_splash")
     
+    // Industrial Geometric Shape
+    val industrialShape = remember(density) {
+        GenericShape { size, _ ->
+            val cut = with(density) { 32.dp.toPx() }
+            moveTo(cut, 0f)
+            lineTo(size.width - cut, 0f)
+            lineTo(size.width, cut)
+            lineTo(size.width, size.height - cut)
+            lineTo(size.width - cut, size.height)
+            lineTo(cut, size.height)
+            lineTo(0f, size.height - cut)
+            lineTo(0f, cut)
+            close()
+        }
+    }
+
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 0.95f,
         targetValue = 1.05f,
@@ -38,25 +51,11 @@ fun SplashScreen(onAnimationFinished: () -> Unit) {
         label = "pulse"
     )
 
-    val rotation by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(12000, easing = LinearEasing), RepeatMode.Restart),
-        label = "rotation"
-    )
-
     val scanProgress by infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(3000, easing = LinearEasing), RepeatMode.Restart),
         label = "scan"
-    )
-
-    val cursorAlpha by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(400), RepeatMode.Reverse),
-        label = "cursor"
     )
 
     LaunchedEffect(Unit) {
@@ -67,150 +66,102 @@ fun SplashScreen(onAnimationFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.radialGradient(
-                    colors = listOf(
-                        Color(0xFF1A237E).copy(alpha = 0.2f),
-                        MaterialTheme.colorScheme.surface
-                    )
-                )
-            ),
+            .background(Color(0xFF0A0A0A)),
         contentAlignment = Alignment.Center
     ) {
+        // Persistent Grid Pattern
+        TechGridPattern(Color(0xFF2196F3))
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.size(280.dp)) {
-                Canvas(modifier = Modifier.size(220.dp)) {
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            listOf(Color(0xFF2196F3).copy(alpha = 0.15f), Color.Transparent)
-                        ),
-                        radius = size.width / 2 * pulseScale
-                    )
-                }
-
-                Canvas(modifier = Modifier.fillMaxSize()) {
-                    withTransform({ rotate(rotation) }) {
-                        val radius = 110.dp.toPx()
-                        for (i in 0 until 6) {
-                            val angle = Math.toRadians(i * 60.0).toFloat()
-                            drawCircle(
-                                color = Color(0xFF2196F3).copy(alpha = 0.4f),
-                                radius = 4.dp.toPx(),
-                                center = Offset(
-                                    center.x + radius * cos(angle),
-                                    center.y + radius * sin(angle)
-                                )
-                            )
-                        }
-                    }
-                }
-
-                Canvas(
+                // Central armored surface
+                Box(
                     modifier = Modifier
-                        .size(160.dp)
-                        .graphicsLayer {
-                            scaleX = pulseScale
-                            scaleY = pulseScale
-                        }
-                ) {
-                    val hexPath = createHexagonPath(size)
-                    drawPath(
-                        path = hexPath,
-                        color = Color(0xFF2196F3).copy(alpha = 0.2f),
-                        style = Stroke(8.dp.toPx())
-                    )
-                    drawPath(
-                        path = hexPath,
-                        color = Color(0xFF2196F3),
-                        style = Stroke(2.dp.toPx(), cap = StrokeCap.Round)
-                    )
-                    withTransform({ rotate(scanProgress * 360f) }) {
-                        drawArc(
-                            brush = Brush.sweepGradient(
-                                0f to Color.Transparent,
-                                0.5f to Color(0xFF2196F3).copy(alpha = 0.3f),
-                                1f to Color.Transparent
-                            ),
-                            startAngle = 0f,
-                            sweepAngle = 90f,
-                            useCenter = true,
-                            alpha = 0.5f
-                        )
-                    }
-                }
-
-                Icon(
-                    imageVector = Icons.Default.Shield,
-                    contentDescription = null,
-                    tint = Color(0xFF2196F3),
-                    modifier = Modifier
-                        .size(64.dp)
-                        .scale(pulseScale)
-                        .alpha(0.9f)
+                        .size(180.dp)
+                        .clip(industrialShape)
+                        .background(Color(0xFF2196F3).copy(alpha = 0.05f))
+                        .border(2.dp, Color(0xFF2196F3).copy(alpha = 0.2f), industrialShape)
                 )
+
+                Canvas(modifier = Modifier.size(220.dp)) {
+                    drawArc(
+                        color = Color(0xFF2196F3).copy(alpha = 0.1f),
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = Stroke(width = 1.dp.toPx())
+                    )
+                }
+
+                Box(contentAlignment = Alignment.Center) {
+                    HexaWardLogo(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .scale(pulseScale),
+                        color = Color(0xFF2196F3),
+                        strokeWidth = 6f
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(40.dp))
+            Spacer(modifier = Modifier.height(48.dp))
 
             Text(
                 text = "HEXAWARD",
-                fontSize = 42.sp,
-                fontWeight = FontWeight.Light,
+                fontSize = 48.sp,
+                fontWeight = FontWeight.Black,
                 color = Color(0xFF2196F3),
-                letterSpacing = 12.sp,
-                modifier = Modifier.alpha(0.8f)
+                letterSpacing = 8.sp,
+                style = MaterialTheme.typography.headlineLarge
             )
-            
-            Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = "CYBERNETIC DATA GUARD",
+                text = "SECURE PROTOCOL ACTIVE",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                color = Color.Gray,
                 letterSpacing = 4.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(top = 8.dp)
             )
             
-            Spacer(modifier = Modifier.height(54.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.alpha(0.6f)
-            ) {
+            Spacer(modifier = Modifier.height(64.dp))
+            
+            // Industrial Loading
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = when {
-                        scanProgress < 0.25f -> "CORE_BOOT_SEQUENCE"
-                        scanProgress < 0.5f -> "SCANNING_ENCRYPTED_VOIDS"
-                        scanProgress < 0.75f -> "SHIELD_SYNCHRONIZATION"
-                        else -> "ACCESS_GRANTED_SUCCESS"
-                    },
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp
-                    ),
-                    color = Color(0xFF2196F3),
+                    text = if (scanProgress < 0.5f) "INITIALIZING_CORE..." else "PROTOCOL_SECURE",
+                    style = MaterialTheme.typography.labelSmall.copy(fontFamily = FontFamily.Monospace),
+                    color = Color(0xFF2196F3).copy(alpha = 0.6f),
                     letterSpacing = 2.sp
                 )
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(Modifier.height(12.dp))
                 Box(
                     modifier = Modifier
-                        .size(width = 6.dp, height = 12.dp)
-                        .background(Color(0xFF2196F3).copy(alpha = cursorAlpha))
-                )
+                        .width(200.dp)
+                        .height(2.dp)
+                        .background(Color.White.copy(alpha = 0.1f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(scanProgress)
+                            .fillMaxHeight()
+                            .background(Color(0xFF2196F3))
+                    )
+                }
             }
         }
     }
 }
 
-private fun createHexagonPath(size: Size): Path {
-    return Path().apply {
-        val radius = size.minDimension / 2
-        val center = Offset(size.width / 2, size.height / 2)
-        for (i in 0 until 6) {
-            val angle = Math.toRadians(i * 60.0 - 90.0).toFloat()
-            val x = center.x + radius * cos(angle)
-            val y = center.y + radius * sin(angle)
-            if (i == 0) moveTo(x, y) else lineTo(x, y)
+@Composable
+fun TechGridPattern(color: Color) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val step = 40.dp.toPx()
+        for (x in 0..size.width.toInt() step step.toInt()) {
+            drawLine(color.copy(0.03f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
         }
-        close()
+        for (y in 0..size.height.toInt() step step.toInt()) {
+            drawLine(color.copy(0.03f), start = Offset(0f, y.toFloat()), end = Offset(size.width, y.toFloat()))
+        }
     }
 }
