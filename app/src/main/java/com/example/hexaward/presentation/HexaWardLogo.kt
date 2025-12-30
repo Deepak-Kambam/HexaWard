@@ -6,9 +6,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.graphics.PaintingStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.toArgb
+import android.graphics.BlurMaskFilter
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -16,7 +21,8 @@ import kotlin.math.sin
 fun HexaWardLogo(
     modifier: Modifier = Modifier,
     color: Color,
-    strokeWidth: Float? = null
+    strokeWidth: Float? = null,
+    showGlow: Boolean = true
 ) {
     Canvas(modifier = modifier.aspectRatio(1f)) {
         val center = this.center
@@ -35,6 +41,69 @@ fun HexaWardLogo(
             close()
         }
         
+        // 2. Inner Shield
+        val shieldHeight = radius * 1.1f 
+        val shieldWidth = radius * 0.9f
+        
+        val shieldPath = Path().apply {
+            val topY = center.y - shieldHeight * 0.4f
+            val bottomY = center.y + shieldHeight * 0.5f
+            val leftX = center.x - shieldWidth * 0.6f
+            val rightX = center.x + shieldWidth * 0.6f
+            
+            moveTo(leftX, topY)
+            lineTo(center.x, topY + shieldHeight * 0.1f) 
+            lineTo(rightX, topY)
+            
+            cubicTo(
+                rightX, topY + shieldHeight * 0.5f, 
+                center.x, bottomY,                  
+                center.x, bottomY                   
+            )
+            cubicTo(
+                center.x, bottomY,
+                leftX, topY + shieldHeight * 0.5f,
+                leftX, topY
+            )
+            close()
+        }
+
+        // --- GLOW LAYER (Draws behind everything) ---
+        if (showGlow) {
+            val glowPaint = Paint().apply {
+                this.color = color
+                this.style = PaintingStyle.Stroke
+                this.strokeWidth = effectiveStrokeWidth
+            }
+            
+            // Apply native blur mask
+            glowPaint.asFrameworkPaint().maskFilter = BlurMaskFilter(
+                radius * 0.15f, 
+                BlurMaskFilter.Blur.NORMAL
+            )
+            
+            drawIntoCanvas { canvas ->
+                // Glow for Hexagon
+                canvas.drawPath(hexPath, glowPaint)
+                
+                // Glow for Shield
+                canvas.drawPath(shieldPath, glowPaint)
+                
+                // Extra intense glow for the center core
+                val coreGlowPaint = Paint().apply {
+                    this.color = color
+                    this.style = PaintingStyle.Fill
+                }
+                coreGlowPaint.asFrameworkPaint().maskFilter = BlurMaskFilter(
+                    radius * 0.3f, 
+                    BlurMaskFilter.Blur.NORMAL
+                )
+                canvas.drawCircle(center, radius * 0.2f, coreGlowPaint)
+            }
+        }
+        
+        // --- MAIN GRAPHICS LAYER ---
+
         // Draw Hexagon Background (faint)
         drawPath(
             path = hexPath,
@@ -49,48 +118,20 @@ fun HexaWardLogo(
             style = Stroke(width = effectiveStrokeWidth)
         )
         
-        // 2. Inner Shield
-        // A tech-shield shape: slightly smaller than hex
-        val shieldHeight = radius * 1.1f // From top to bottom tip
-        val shieldWidth = radius * 0.9f
-        
-        val shieldPath = Path().apply {
-            val topY = center.y - shieldHeight * 0.4f
-            val bottomY = center.y + shieldHeight * 0.5f
-            val leftX = center.x - shieldWidth * 0.6f
-            val rightX = center.x + shieldWidth * 0.6f
-            
-            // Top horizontal line (slightly indented)
-            moveTo(leftX, topY)
-            lineTo(center.x, topY + shieldHeight * 0.1f) // Small dip in center top
-            lineTo(rightX, topY)
-            
-            // Sides curving to bottom point
-            cubicTo(
-                rightX, topY + shieldHeight * 0.5f, // Control point 1
-                center.x, bottomY,                  // Control point 2 (approx)
-                center.x, bottomY                   // End point
-            )
-            cubicTo(
-                center.x, bottomY,
-                leftX, topY + shieldHeight * 0.5f,
-                leftX, topY
-            )
-            close()
-        }
-        
+        // Draw Shield Fill
         drawPath(
             path = shieldPath,
             color = color.copy(alpha = 0.15f),
             style = Fill
         )
+        // Draw Shield Border
         drawPath(
             path = shieldPath,
             color = color.copy(alpha = 0.8f),
             style = Stroke(width = effectiveStrokeWidth * 0.7f)
         )
         
-        // 3. Central Core Node
+        // 3. Central Core Node (Bright)
         drawCircle(
             color = color,
             radius = radius * 0.15f,
@@ -98,11 +139,10 @@ fun HexaWardLogo(
         )
         
         // 4. Circuit Lines (Decorative)
-        // Top line
         drawLine(
             color = color.copy(alpha = 0.6f),
             start = Offset(center.x, center.y - radius * 0.15f),
-            end = Offset(center.x, center.y - radius * 0.4f), // Connecting to shield dip
+            end = Offset(center.x, center.y - radius * 0.4f), 
             strokeWidth = effectiveStrokeWidth * 0.5f
         )
     }

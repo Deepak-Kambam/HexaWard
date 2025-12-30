@@ -104,7 +104,11 @@ fun DashboardScreen(
             CenterAlignedTopAppBar(
                 title = { 
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.AdminPanelSettings, contentDescription = null, tint = animatedThemeColor)
+                        HexaWardLogo(
+                            modifier = Modifier.size(28.dp),
+                            color = animatedThemeColor,
+                            strokeWidth = 2.5f
+                        )
                         Spacer(Modifier.width(8.dp))
                         Text(
                             "HEXAWARD", 

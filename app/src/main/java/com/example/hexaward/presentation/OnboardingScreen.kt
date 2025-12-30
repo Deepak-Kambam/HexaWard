@@ -6,6 +6,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.GenericShape
@@ -72,7 +74,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A))) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0A0A0A)).windowInsetsPadding(WindowInsets.systemBars)) {
         TechGridPattern(pages[pagerState.currentPage].color)
 
         Column(modifier = Modifier.fillMaxSize()) {

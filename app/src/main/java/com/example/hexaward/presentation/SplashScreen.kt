@@ -6,31 +6,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.GenericShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AdminPanelSettings
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import kotlin.math.cos
-import kotlin.math.sin
 
 @Composable
 fun SplashScreen(onAnimationFinished: () -> Unit) {
@@ -103,17 +94,12 @@ fun SplashScreen(onAnimationFinished: () -> Unit) {
                 }
 
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Shield,
-                        contentDescription = null,
-                        tint = Color(0xFF2196F3).copy(alpha = 0.1f),
-                        modifier = Modifier.size(100.dp).scale(pulseScale)
-                    )
-                    Icon(
-                        imageVector = Icons.Default.AdminPanelSettings,
-                        contentDescription = null,
-                        tint = Color(0xFF2196F3),
-                        modifier = Modifier.size(54.dp).alpha(0.9f)
+                    HexaWardLogo(
+                        modifier = Modifier
+                            .size(140.dp)
+                            .scale(pulseScale),
+                        color = Color(0xFF2196F3),
+                        strokeWidth = 6f
                     )
                 }
             }

@@ -170,7 +170,22 @@ fun MainSettingsContent(
         containerColor = Color.Transparent,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("SECURITY CONFIG", fontWeight = FontWeight.Black, letterSpacing = 4.sp, color = animatedThemeColor) },
+                title = { 
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        HexaWardLogo(
+                            modifier = Modifier.size(28.dp),
+                            color = animatedThemeColor,
+                            strokeWidth = 2.5f
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            "SECURITY CONFIG",
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 4.sp,
+                            color = animatedThemeColor
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onOpenDrawer) { Icon(Icons.Default.Menu, "Menu", tint = animatedThemeColor) }
                 },
@@ -353,7 +368,11 @@ fun AboutScreen(onBack: () -> Unit, themeColor: Color, industrialCardShape: andr
                 modifier = Modifier.size(120.dp).clip(industrialCardShape).background(themeColor.copy(0.1f)).border(2.dp, themeColor.copy(0.3f), industrialCardShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.AdminPanelSettings, null, tint = themeColor, modifier = Modifier.size(60.dp))
+                HexaWardLogo(
+                    modifier = Modifier.size(80.dp),
+                    color = themeColor,
+                    strokeWidth = 3f
+                )
             }
             Spacer(Modifier.height(24.dp))
             Text("HEXAWARD", fontWeight = FontWeight.Black, color = themeColor, letterSpacing = 4.sp, style = MaterialTheme.typography.headlineMedium)

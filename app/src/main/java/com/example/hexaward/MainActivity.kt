@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
@@ -14,6 +15,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
@@ -68,7 +72,14 @@ class MainActivity : ComponentActivity() {
         splashScreen.setKeepOnScreenCondition { false }
         
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.dark(
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         
         try {
             val testWork = OneTimeWorkRequestBuilder<SecurityWorker>().build()
@@ -194,7 +205,8 @@ fun MainNavigationContent(viewModel: MainViewModel) {
 
     ModalNavigationDrawer(
         drawerState = drawerState,
-        scrimColor = Color.Black.copy(alpha = 0.5f), 
+        scrimColor = Color.Black.copy(alpha = 0.5f),
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars), 
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = Color.Transparent,
@@ -257,7 +269,7 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                     }
 
                     Column {
-                        Spacer(Modifier.height(80.dp))
+                        Spacer(Modifier.height(WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp))
                         
                         Column(modifier = Modifier.padding(horizontal = 32.dp)) {
                             Box(contentAlignment = Alignment.Center) {
@@ -313,7 +325,7 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                         Spacer(Modifier.weight(1f))
                         
                         Card(
-                            modifier = Modifier.padding(24.dp),
+                            modifier = Modifier.padding(24.dp).padding(bottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()),
                             colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.08f)),
                             border = BorderStroke(1.dp, themeColor.copy(0.3f))
                         ) {
