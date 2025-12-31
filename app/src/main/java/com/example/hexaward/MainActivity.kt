@@ -7,26 +7,58 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.SystemBarStyle
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Science
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +68,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
@@ -48,7 +81,13 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.hexaward.data.worker.SecurityWorker
 import com.example.hexaward.data.worker.UpdateCheckWorker
-import com.example.hexaward.presentation.*
+import com.example.hexaward.presentation.DashboardScreen
+import com.example.hexaward.presentation.HexaWardLogo
+import com.example.hexaward.presentation.MainViewModel
+import com.example.hexaward.presentation.OnboardingScreen
+import com.example.hexaward.presentation.SecurityLabScreen
+import com.example.hexaward.presentation.SettingsScreen
+import com.example.hexaward.presentation.SplashScreen
 import com.example.hexaward.ui.theme.HexaWardTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -70,41 +109,34 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         splashScreen.setKeepOnScreenCondition { false }
-        
+
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(
-                android.graphics.Color.TRANSPARENT
-            ),
-            navigationBarStyle = SystemBarStyle.dark(
-                android.graphics.Color.TRANSPARENT
-            )
-        )
-        
+        enableEdgeToEdge()
+
         try {
             val testWork = OneTimeWorkRequestBuilder<SecurityWorker>().build()
             WorkManager.getInstance(this).enqueue(testWork)
         } catch (e: Exception) {
             Log.e("HexaWardApp", "Failed to enqueue test worker", e)
         }
-        
+
         UpdateCheckWorker.enqueuePeriodicCheck(this)
         UpdateCheckWorker.checkNow(this)
-        
+
         val sharedPref = getSharedPreferences("hexa_pref", Context.MODE_PRIVATE)
-        
+
         setContent {
             HexaWardTheme {
                 val isOnboardingComplete = sharedPref.getBoolean("onboarding_finished", false)
-                var currentScreen by remember { 
+                var currentScreen by remember {
                     mutableStateOf(
                         if (isOnboardingComplete) "splash_to_main" else "splash"
-                    ) 
+                    )
                 }
-                
+
                 // Add a small delay when transitioning to main to ensure proper cleanup
                 var readyToShowMain by remember { mutableStateOf(false) }
-                
+
                 LaunchedEffect(currentScreen) {
                     if (currentScreen == "main") {
                         kotlinx.coroutines.delay(300) // Delay for smooth transition
@@ -116,7 +148,7 @@ class MainActivity : ComponentActivity() {
 
                 Box(modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0A0A0A)) 
+                    .background(Color(0xFF0A0A0A))
                 ) {
                     when (currentScreen) {
                         "splash" -> {
@@ -131,7 +163,7 @@ class MainActivity : ComponentActivity() {
                         }
                         "onboarding" -> {
                             OnboardingScreen(onFinished = {
-                                sharedPref.edit { 
+                                sharedPref.edit {
                                     putBoolean("onboarding_finished", true)
                                     apply()
                                 }
@@ -171,16 +203,18 @@ fun MainNavigationContent(viewModel: MainViewModel) {
     val pagerState = rememberPagerState(pageCount = { 3 })
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    
+
     val riskStatus by viewModel.riskStatus.collectAsState()
     val settings by viewModel.settings.collectAsState()
-    
+
     val themeColor = when {
         riskStatus.score < 25 -> Color(0xFF4CAF50)
         riskStatus.score < 50 -> Color(0xFF2196F3)
         riskStatus.score < 75 -> Color(0xFFFF9800)
         else -> Color(0xFFF44336)
     }
+
+    val haptic = LocalHapticFeedback.current
 
     // Bloom Effect values for drawer border glow
     val bloomIntensity by animateFloatAsState(
@@ -206,7 +240,7 @@ fun MainNavigationContent(viewModel: MainViewModel) {
     ModalNavigationDrawer(
         drawerState = drawerState,
         scrimColor = Color.Black.copy(alpha = 0.5f),
-        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars), 
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = Color.Transparent,
@@ -233,12 +267,12 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                                 )
                             )
                     )
-                    
+
                     // Bloom effect border glow
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val glowWidth = bloomWidth.dp.toPx()
                         val glowAlpha = bloomIntensity * 0.6f
-                        
+
                         // Draw glowing border on the right edge
                         drawRect(
                             brush = Brush.horizontalGradient(
@@ -254,7 +288,7 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                             topLeft = Offset(size.width - glowWidth * 3, 0f),
                             size = androidx.compose.ui.geometry.Size(glowWidth * 3, size.height)
                         )
-                        
+
                         // Solid border line
                         drawLine(
                             color = themeColor.copy(alpha = 0.8f),
@@ -263,27 +297,20 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                             strokeWidth = 2.dp.toPx()
                         )
                     }
-                    
+
                     if (settings.techGridEnabled) {
                         TechGridPattern(themeColor)
                     }
 
                     Column {
                         Spacer(Modifier.height(WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp))
-                        
+
                         Column(modifier = Modifier.padding(horizontal = 32.dp)) {
                             Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Default.Shield, 
-                                    null, 
-                                    tint = themeColor.copy(alpha = 0.15f), 
-                                    modifier = Modifier.size(80.dp)
-                                )
-                                Icon(
-                                    Icons.Default.AdminPanelSettings, 
-                                    null, 
-                                    tint = themeColor, 
-                                    modifier = Modifier.size(40.dp)
+                                HexaWardLogo(
+                                    modifier = Modifier.size(80.dp),
+                                    color = themeColor,
+                                    strokeWidth = 4f
                                 )
                             }
                             Spacer(Modifier.height(16.dp))
@@ -309,21 +336,21 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                                 )
                             }
                         }
-                        
+
                         Spacer(Modifier.height(48.dp))
-                        
-                        IndustrialNavItem("DASHBOARD", Icons.Default.Dashboard, pagerState.currentPage == 0, themeColor) {
+
+                        IndustrialNavItem("DASHBOARD", Icons.Default.Dashboard, pagerState.currentPage == 0, themeColor, settings.hapticsEnabled, haptic) {
                             scope.launch { pagerState.animateScrollToPage(0); drawerState.close() }
                         }
-                        IndustrialNavItem("SECURITY LAB", Icons.Default.Science, pagerState.currentPage == 1, themeColor) {
+                        IndustrialNavItem("SECURITY LAB", Icons.Default.Science, pagerState.currentPage == 1, themeColor, settings.hapticsEnabled, haptic) {
                             scope.launch { pagerState.animateScrollToPage(1); drawerState.close() }
                         }
-                        IndustrialNavItem("CORE SETTINGS", Icons.Default.Settings, pagerState.currentPage == 2, themeColor) {
+                        IndustrialNavItem("CORE SETTINGS", Icons.Default.Settings, pagerState.currentPage == 2, themeColor, settings.hapticsEnabled, haptic) {
                             scope.launch { pagerState.animateScrollToPage(2); drawerState.close() }
                         }
-                        
+
                         Spacer(Modifier.weight(1f))
-                        
+
                         Card(
                             modifier = Modifier.padding(24.dp).padding(bottom = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()),
                             colors = CardDefaults.cardColors(containerColor = Color.White.copy(0.08f)),
@@ -356,10 +383,10 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                     if (settings.techGridEnabled) {
                         val step = 40.dp.toPx()
                         for (x in 0..size.width.toInt() step step.toInt()) {
-                            drawLine(themeColor.copy(0.04f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
+                            drawLine(themeColor.copy(0.12f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
                         }
                         for (y in 0..size.height.toInt() step step.toInt()) {
-                            drawLine(themeColor.copy(0.04f), start = Offset(0f, y.toFloat()), end = Offset(size.width, y.toFloat()))
+                            drawLine(themeColor.copy(0.12f), start = Offset(0f, y.toFloat()), end = Offset(size.width, y.toFloat()))
                         }
                     }
                 }
@@ -370,17 +397,33 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
                 userScrollEnabled = true,
-                beyondViewportPageCount = 1
+                beyondViewportPageCount = 1,
+                pageSpacing = 0.dp
             ) { page ->
                 Box(
                     Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            val pageOffset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue
-                            alpha = lerp(start = 1f, stop = 0f, fraction = pageOffset.coerceIn(0f, 1f))
-                            val scale = lerp(start = 1f, stop = 0.92f, fraction = pageOffset.coerceIn(0f, 1f))
+                            val pageOffset = (
+                                (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+                            ).absoluteValue
+
+                            // "Google Photos" style depth transition
+                            // Scale down neighbors, keep center large
+                            val scale = lerp(
+                                start = 0.85f,
+                                stop = 1f,
+                                fraction = 1f - pageOffset.coerceIn(0f, 1f)
+                            )
                             scaleX = scale
                             scaleY = scale
+
+                            // Fade out neighbors
+                            alpha = lerp(
+                                start = 0.5f,
+                                stop = 1f,
+                                fraction = 1f - pageOffset.coerceIn(0f, 1f)
+                            )
                         }
                 ) {
                     when (page) {
@@ -401,6 +444,17 @@ fun MainNavigationContent(viewModel: MainViewModel) {
                     }
                 }
             }
+
+            // Page Indicator (Mini Gestures)
+            PageIndicator(
+                count = 3,
+                currentPage = pagerState.currentPage,
+                color = themeColor,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp)
+                    .navigationBarsPadding()
+            )
         }
     }
 }
@@ -433,21 +487,26 @@ fun TechGridPattern(color: Color) {
     androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
         val step = 40.dp.toPx()
         for (x in 0..size.width.toInt() step step.toInt()) {
-            drawLine(color.copy(0.03f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
+            drawLine(color.copy(0.12f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
         }
         for (y in 0..size.height.toInt() step step.toInt()) {
-            drawLine(color.copy(0.03f), start = Offset(0f, y.toFloat()), end = Offset(size.width, y.toFloat()))
+            drawLine(color.copy(0.12f), start = Offset(0f, y.toFloat()), end = Offset(size.width, y.toFloat()))
         }
     }
 }
 
 @Composable
-fun IndustrialNavItem(label: String, icon: ImageVector, selected: Boolean, themeColor: Color, onClick: () -> Unit) {
+fun IndustrialNavItem(label: String, icon: ImageVector, selected: Boolean, themeColor: Color, hapticsEnabled: Boolean, haptic: androidx.compose.ui.hapticfeedback.HapticFeedback, onClick: () -> Unit) {
     val alpha by animateFloatAsState(if (selected) 1f else 0.5f, label = "alpha")
     val translationX by animateFloatAsState(if (selected) 16f else 0f, label = "translation")
 
     Surface(
-        onClick = onClick,
+        onClick = {
+            if (hapticsEnabled) {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            }
+            onClick()
+        },
         color = Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
@@ -474,6 +533,42 @@ fun IndustrialNavItem(label: String, icon: ImageVector, selected: Boolean, theme
                     .background(themeColor, RoundedCornerShape(1.dp))
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun PageIndicator(
+    count: Int,
+    currentPage: Int,
+    color: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(count) { index ->
+            val isSelected = currentPage == index
+            val width by animateDpAsState(
+                targetValue = if (isSelected) 24.dp else 8.dp,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "indicator_width"
+            )
+            val alpha by animateFloatAsState(
+                targetValue = if (isSelected) 1f else 0.3f,
+                animationSpec = tween(300),
+                label = "indicator_alpha"
+            )
+
+            Box(
+                modifier = Modifier
+                    .height(4.dp)
+                    .width(width)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(color.copy(alpha = alpha))
+            )
         }
     }
 }

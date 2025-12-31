@@ -33,6 +33,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.core.graphics.drawable.toBitmap
 import com.example.hexaward.domain.model.RiskStatus
@@ -55,6 +57,8 @@ fun DashboardScreen(
     onNavigateToSettings: () -> Unit
 ) {
     val riskStatus by viewModel.riskStatus.collectAsState()
+    val settings by viewModel.settings.collectAsState()
+    val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     
     val industrialCardShape = remember(density) {
@@ -119,12 +123,18 @@ fun DashboardScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onOpenDrawer) {
+                    IconButton(onClick = {
+                        if (settings.hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onOpenDrawer()
+                    }) {
                         Icon(Icons.Default.Menu, contentDescription = "Menu", tint = animatedThemeColor)
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(onClick = {
+                        if (settings.hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onNavigateToSettings()
+                    }) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings", tint = animatedThemeColor)
                     }
                 },
@@ -139,7 +149,7 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(padding)
         ) {
-            DashboardContent(riskStatus, currentAnimatedValue, animatedThemeColor, industrialCardShape, context = androidx.compose.ui.platform.LocalContext.current)
+            DashboardContent(riskStatus, currentAnimatedValue, animatedThemeColor, industrialCardShape, context = androidx.compose.ui.platform.LocalContext.current, hapticsEnabled = settings.hapticsEnabled, haptic = haptic)
         }
     }
 }
@@ -202,7 +212,9 @@ fun DashboardContent(
     animatedScoreValue: Float, 
     themeColor: Color,
     industrialCardShape: androidx.compose.ui.graphics.Shape,
-    context: android.content.Context
+    context: android.content.Context,
+    hapticsEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val listState = rememberLazyListState()
     var selectedThreatCategory by remember { mutableStateOf(ThreatCategory.ALL) }
@@ -364,7 +376,9 @@ fun DashboardContent(
                                     count = count,
                                     isSelected = selectedThreatCategory == category,
                                     onClick = { selectedThreatCategory = category },
-                                    industrialCardShape = industrialCardShape
+                                    industrialCardShape = industrialCardShape,
+                                    hapticsEnabled = hapticsEnabled,
+                                    haptic = haptic
                                 )
                             }
                         }
@@ -393,7 +407,9 @@ fun DashboardContent(
                                     count = count,
                                     isSelected = selectedAppCategory == category,
                                     onClick = { selectedAppCategory = category },
-                                    industrialCardShape = industrialCardShape
+                                    industrialCardShape = industrialCardShape,
+                                    hapticsEnabled = hapticsEnabled,
+                                    haptic = haptic
                                 )
                             }
                         }
@@ -772,7 +788,9 @@ fun AppCategoryChip(
     count: Int,
     isSelected: Boolean,
     onClick: () -> Unit,
-    industrialCardShape: androidx.compose.ui.graphics.Shape
+    industrialCardShape: androidx.compose.ui.graphics.Shape,
+    hapticsEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) category.color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
@@ -788,7 +806,10 @@ fun AppCategoryChip(
     )
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            if (hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),
@@ -837,7 +858,9 @@ fun CategoryChip(
     count: Int,
     isSelected: Boolean,
     onClick: () -> Unit,
-    industrialCardShape: androidx.compose.ui.graphics.Shape
+    industrialCardShape: androidx.compose.ui.graphics.Shape,
+    hapticsEnabled: Boolean,
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback
 ) {
     val backgroundColor by animateColorAsState(
         targetValue = if (isSelected) category.color.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
@@ -853,7 +876,10 @@ fun CategoryChip(
     )
     
     Surface(
-        onClick = onClick,
+        onClick = {
+            if (hapticsEnabled) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
             .border(1.5.dp, borderColor, RoundedCornerShape(12.dp)),

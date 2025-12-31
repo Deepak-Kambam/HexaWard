@@ -5,13 +5,42 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Optimizations
--optimizations !code/simplification/arithmetic,!field/*,!class/merging/*
+# Optimizations - Aggressive settings for size reduction
+-optimizations !code/simplification/arithmetic,!code/simplification/cast,!field/*,!class/merging/*
 -optimizationpasses 5
 -allowaccessmodification
+-dontpreverify
+-repackageclasses ''
 
-# Preserve line numbers for debugging stack traces
+# Remove all logging in release builds
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+    public static *** wtf(...);
+}
+
+# Remove debug and verbose level Timber logs
+-assumenosideeffects class timber.log.Timber {
+    public static *** d(...);
+    public static *** v(...);
+}
+
+# Remove all println statements
+-assumenosideeffects class kotlin.io.ConsoleKt {
+    public static *** println(...);
+}
+
+# Remove toString() calls
+-assumenosideeffects class * {
+    public java.lang.String toString();
+}
+
+# Preserve line numbers for debugging stack traces (minimal)
 -keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
 # Hilt/Dagger
 -keep class dagger.hilt.** { *; }
@@ -65,13 +94,32 @@
 
 # Prevent R8 from shaking annotations
 -keep class **$$ExternalSyntheticLambda* { *; }
--assumenosideeffects class kotlin.jvm.internal.Intrinsics { *; }
 
-# Enable full mode for better optimization
--assumenosideeffects class android.util.Log {
-    public static *** d(...);
-    public static *** v(...);
-    public static *** i(...);
-    public static *** w(...);
-    public static *** e(...);
+# Kotlin optimizations
+-assumenosideeffects class kotlin.jvm.internal.Intrinsics {
+    public static void checkNotNull(java.lang.Object);
+    public static void checkNotNull(java.lang.Object, java.lang.String);
+    public static void checkParameterIsNotNull(java.lang.Object, java.lang.String);
+    public static void checkNotNullParameter(java.lang.Object, java.lang.String);
+    public static void checkExpressionValueIsNotNull(java.lang.Object, java.lang.String);
+    public static void checkReturnedValueIsNotNull(java.lang.Object, java.lang.String);
+    public static void checkFieldIsNotNull(java.lang.Object, java.lang.String);
+    public static void throwUninitializedPropertyAccessException(java.lang.String);
 }
+
+# Remove Compose debug information
+-assumenosideeffects class androidx.compose.runtime.ComposerKt {
+    void sourceInformation(androidx.compose.runtime.Composer, java.lang.String);
+    void sourceInformationMarkerStart(androidx.compose.runtime.Composer, int, java.lang.String);
+    void sourceInformationMarkerEnd(androidx.compose.runtime.Composer);
+}
+
+# Strip debug symbols from native libraries
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
+
+# Remove annotations to reduce size
+-dontwarn org.jetbrains.annotations.**
+-dontwarn javax.annotation.**
+-dontwarn kotlin.Metadata
